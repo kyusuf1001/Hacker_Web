@@ -84,12 +84,15 @@ def start_random_puzzle():
     session["p_system"] = p["system"]
     session["p_desc"] = p["desc"]
     session["p_expected"] = p["expected"]
+    session["p_explicit"] = True   # ← NEW: started by clicking the button
 
 def clear_puzzle():
     session.pop("p_active", None)
     session.pop("p_system", None)
     session.pop("p_desc", None)
     session.pop("p_expected", None)
+    session.pop("p_explicit", None)  # ← NEW
+
 
 def hacker_success(system):
     # Add some GB and show a small random file list
@@ -118,13 +121,15 @@ def training():
 @app.route("/hack", methods=["GET", "POST"])
 def hack():
     """
-    Credit features (Power Surge removed):
-      - Reroll Hack (3 cr)
-      - One-Time Hint (5 cr)
-      - Cool Down (8 cr)
-    Cancel Hack now costs 2GB intel to use.
+    No auto-start. You must press 'Start Hack' to get a puzzle.
+    Cancel Hack costs 2GB. Credits actions: Reroll (3), Hint (5), Cool Down (8).
     """
     result = None
+    # If a previous session cookie says there's an active puzzle,
+    # but it wasn't explicitly started in this visit, clear it.
+    if request.method == "GET" and session.get("p_active") and not session.get("p_explicit"):
+        clear_puzzle()
+
     files = []
     total = 0
     hint_text = None
@@ -132,7 +137,6 @@ def hack():
     if request.method == "POST":
         action = request.form.get("action")
 
-        # Start / Submit / Cancel
         if action == "new":
             start_random_puzzle()
 
@@ -165,14 +169,12 @@ def hack():
                     else:
                         STATE["detection"] = min(STATE["max_detection"], STATE["detection"] + 1)
                         result = {"ok": False, "msg": f"Hack failed on {sysname.upper()} — detection raised."}
-
                 clear_puzzle()
 
         elif action == "cancel":
             if not session.get("p_active"):
                 flash("No active hack to cancel.", "warn")
             else:
-                # Require 2GB to cancel
                 if STATE["files"] < 2:
                     flash("Not enough intel to cancel (requires 2GB).", "warn")
                 else:
@@ -180,7 +182,7 @@ def hack():
                     STATE["files"] -= 2
                     result = {"ok": True, "msg": "Hack cancelled."}
 
-        # ===== Credits actions =====
+        # Credits actions
         elif action == "reroll":
             if not session.get("p_active"):
                 flash("Start a hack first.", "warn")
@@ -218,7 +220,7 @@ def hack():
                 STATE["detection"] = max(0, STATE["detection"] - 1)
                 result = {"ok": True, "msg": "System cooled. Detection decreased by 1."}
 
-    # Expose current puzzle (label + prompt) WITHOUT auto-start on GET
+    # Only show puzzle if there IS one
     puzzle = None
     if session.get("p_active"):
         puzzle = {"system": session.get("p_system"), "desc": session.get("p_desc")}
