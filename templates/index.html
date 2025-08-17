@@ -1,33 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card" style="text-align:center; border-color:#38d39f;">
-  <h1>Hackers Web</h1>
-  <p>Your mission vs. defenses. Train, Hack, or Defend the system.</p>
+  <h2>Home</h2>
+  <p>Train, hack, defend — or trade intel on the black market.</p>
 </div>
 
 <div class="grid">
   <div class="card">
     <h2>📚 Training</h2>
-    <p>Rulebook with commands for Wires, Keypad, and Firewall.</p>
-    <a class="btn" href="{{ url_for('training') }}">Enter Training</a>
+    <p>Rules for Wires, Keypad, and Firewall.</p>
+    <a href="{{ url_for('training') }}"><button>Enter Training</button></a>
   </div>
 
   <div class="card">
     <h2>🔐 Defender Login</h2>
-    <p>Owner console: view stats, download data, or logout. Cancel detection if needed.</p>
-    <a class="btn" href="{{ url_for('login') }}">Open Login</a>
+    <p>View logs, backup, cancel detection, or logout.</p>
+    <a href="{{ url_for('login') }}"><button>Open Login</button></a>
   </div>
 
   <div class="card">
     <h2>💻 Hack Console</h2>
-    <p>Attempt random hacks. Success downloads data; failure raises detection.</p>
-    <a class="btn" href="{{ url_for('hack') }}">Go Hack</a>
+    <p>Start a random hack. Success downloads data; fail raises detection.</p>
+    <a href="{{ url_for('hack') }}"><button>Go Hack</button></a>
   </div>
 
   <div class="card">
     <h2>📂 System Status</h2>
-    <p>View successful/failed hacks, GB downloaded, and detection level.</p>
-    <a class="btn" href="{{ url_for('system_panel') }}">View Status</a>
+    <p>Hacks, GB stolen, and detection level.</p>
+    <a href="{{ url_for('system_panel') }}"><button>View Status</button></a>
+  </div>
+
+  <!-- NEW: Black Market -->
+  <div class="card">
+    <h2>🕶️ Black Market</h2>
+    <p>Sell stolen intel (GB) for credits.</p>
+    <a href="{{ url_for('black_market') }}"><button>Enter Market</button></a>
   </div>
 </div>
 {% endblock %}

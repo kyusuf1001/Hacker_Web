@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>🕶️ Black Market</h2>
+  <p><strong>Available intel:</strong> {{ state.files }} GB</p>
+  <p><strong>Your credits:</strong> {{ state.credits }}</p>
+  <p><strong>Rate:</strong> {{ price }} credits per 1 GB</p>
+
+  <form method="post" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+    <div>
+      <label for="gb">Amount to sell (GB)</label><br>
+      <input id="gb" name="gb" type="number" min="1" max="{{ state.files }}" placeholder="e.g. 10" required>
+    </div>
+    <button type="submit">Sell</button>
+    <a href="{{ url_for('index') }}"><button type="button">Back</button></a>
+  </form>
+
+  {% if message %}
+    <div class="card" style="margin-top:10px; border-color:{% if message.ok %}#0f0{% else %}#f66{% endif %};">
+      {{ message.text }}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

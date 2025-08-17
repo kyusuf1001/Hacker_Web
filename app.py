@@ -8,7 +8,8 @@ app.secret_key = "super_secret_key"
 STATE = {
     "detection": 0,
     "max_detection": 5,
-    "files": 0,  # total GB stolen by hackers (from successful hacks)
+    "files": 0,          # total GB stolen by hackers (from successful hacks)
+    "credits": 0,        # currency earned by selling intel on the Black Market
 }
 
 # Per-defense hack attempt logs
@@ -39,69 +40,38 @@ FILE_CATALOG = {
     ],
 }
 
+# Price: how many credits you get per 1GB sold
+MARKET_PRICE = 2
+
 # ======= HELPERS (PUZZLES MATCH TRAINING RULES) =======
 def gen_wires():
-    """Generate a wires scenario + expected command per your training rules."""
     case = random.choice(["two_rb", "two_gy", "three_any", "one_red_other"])
     if case == "two_rb":
-        return {
-            "system": "wires",
-            "desc": "Indicators: 2 lights | wires: red, blue",
-            "expected": "connect red blue",
-        }
+        return {"system": "wires", "desc": "Indicators: 2 lights | wires: red, blue", "expected": "connect red blue"}
     if case == "two_gy":
-        return {
-            "system": "wires",
-            "desc": "Indicators: 2 lights | wires: green, yellow",
-            "expected": "cut green",
-        }
+        return {"system": "wires", "desc": "Indicators: 2 lights | wires: green, yellow", "expected": "cut green"}
     if case == "three_any":
         a, b = random.sample(["red", "blue", "green", "yellow"], 2)
-        return {
-            "system": "wires",
-            "desc": f"Indicators: 3 lights | wires: {a}, {b}",
-            "expected": "disconnect all",
-        }
+        return {"system": "wires", "desc": f"Indicators: 3 lights | wires: {a}, {b}", "expected": "disconnect all"}
     other = random.choice(["blue", "green", "yellow"])
-    return {
-        "system": "wires",
-        "desc": f"Indicators: 1 light | wires: red, {other}",
-        "expected": f"cut {other}",
-    }
+    return {"system": "wires", "desc": f"Indicators: 1 light | wires: red, {other}", "expected": f"cut {other}"}
 
 def gen_keypad():
-    """Even → *2; Odd → +3; 9 → 999."""
     n = random.randint(1, 9)
-    if n == 9:
-        expected = "999"
-    elif n % 2 == 0:
-        expected = str(n * 2)
-    else:
-        expected = str(n + 3)
-    return {
-        "system": "keypad",
-        "desc": f"Indicator number: {n}",
-        "expected": expected,
-    }
+    if n == 9: expected = "999"
+    elif n % 2 == 0: expected = str(n * 2)
+    else: expected = str(n + 3)
+    return {"system": "keypad", "desc": f"Indicator number: {n}", "expected": expected}
 
 def gen_firewall():
-    """Pattern ABC starting with A/B/C/D → transform per training."""
     start = random.choice("ABCD")
     rest = "".join(random.choice("ABCDEF") for _ in range(2))
     pat = (start + rest).upper()
-    if start == "A":
-        expected = pat[::-1]
-    elif start == "B":
-        expected = pat * 2
-    elif start == "C":
-        expected = pat[0] + pat[2]  # drop the middle
-    else:
-        expected = pat  # as-is
-    return {
-        "system": "firewall",
-        "desc": f"Firewall pattern: {pat}",
-        "expected": expected,
-    }
+    if start == "A": expected = pat[::-1]
+    elif start == "B": expected = pat * 2
+    elif start == "C": expected = pat[0] + pat[2]
+    else: expected = pat
+    return {"system": "firewall", "desc": f"Firewall pattern: {pat}", "expected": expected}
 
 def start_random_puzzle():
     maker = random.choice([gen_wires, gen_keypad, gen_firewall])
@@ -118,23 +88,21 @@ def clear_puzzle():
     session.pop("p_expected", None)
 
 def hacker_success(system):
-    # Add some GB and show a small random file list
     files = FILE_CATALOG.get(system, [])
     selection = random.sample(files, k=min(2, len(files))) if files else []
     size = sum(sz for _, sz in selection)
     if size == 0:
-        size = random.randint(10, 40)  # fallback GB amount
+        size = random.randint(10, 40)
     STATE["files"] += size
     return selection, size
 
-# ======= ROUTES (unchanged files not included) =======
+# ======= ROUTES =======
 @app.route("/")
 def index():
     return render_template("index.html", state=STATE)
 
 @app.route("/training")
 def training():
-    # Block viewing Training while a hack is active (cancel is how to exit)
     if session.get("p_active"):
         flash("Finish or cancel your current hack before viewing Training.", "warn")
         return redirect(url_for("hack"))
@@ -143,20 +111,11 @@ def training():
 # ---------- HACK ----------
 @app.route("/hack", methods=["GET", "POST"])
 def hack():
-    """
-    You must press 'Start Random Hack' to get a puzzle.
-    'Cancel Hack' clears the active puzzle and silently deducts 5GB.
-    NEW: If detection is already MAX and a hack fails, hackers lose 15GB.
-    """
-    result = None
-    files = []
-    total = 0
-
+    result, files, total = None, [], 0
     if request.method == "POST":
         action = request.form.get("action")
         if action == "new":
             start_random_puzzle()
-
         elif action == "submit":
             if not session.get("p_active"):
                 flash("Start a hack first.", "warn")
@@ -170,7 +129,7 @@ def hack():
                     ok = (answer.lower() == expected.lower())
                 elif sysname == "keypad":
                     ok = (answer == expected)
-                else:  # firewall
+                else:
                     ok = (answer.upper() == expected.upper())
 
                 if ok:
@@ -180,58 +139,33 @@ def hack():
                     result = {"ok": True, "msg": f"Hack success on {sysname.upper()} — downloaded {size}GB."}
                 else:
                     DEFENSE_LOGS[sysname]["fail"] += 1
-
-                    # If already at max detection, hackers lose 15GB (no extra raise)
                     if STATE["detection"] >= STATE["max_detection"]:
                         STATE["files"] = max(0, STATE["files"] - 15)
-                        result = {
-                            "ok": False,
-                            "msg": f"Hack failed on {sysname.upper()} — hackers traced, −15GB."
-                        }
+                        result = {"ok": False, "msg": f"Hack failed on {sysname.upper()} — hackers traced, −15GB."}
                     else:
-                        # Otherwise raise detection by 1
                         STATE["detection"] = min(STATE["max_detection"], STATE["detection"] + 1)
                         result = {"ok": False, "msg": f"Hack failed on {sysname.upper()} — detection raised."}
-
                 clear_puzzle()
-
         elif action == "cancel":
             if session.get("p_active"):
                 clear_puzzle()
-                # Cancelling penalizes hackers 5GB (silent rule, not on button label)
                 STATE["files"] = max(0, STATE["files"] - 5)
                 result = {"ok": True, "msg": "Hack cancelled."}
 
-    # Expose current puzzle (label + prompt) WITHOUT auto-start on GET
     puzzle = None
     if session.get("p_active"):
         puzzle = {"system": session.get("p_system"), "desc": session.get("p_desc")}
+    return render_template("hack.html", state=STATE, puzzle=puzzle, result=result, files=files, total=total)
 
-    return render_template(
-        "hack.html",
-        state=STATE,
-        puzzle=puzzle,
-        result=result,
-        files=files,
-        total=total
-    )
-
-# ---------- LOGIN (DEFENDER MENU WITH PASSWORD PER DEFENSE) ----------
+# ---------- LOGIN (DEFENDER) ----------
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """
-    Choose a defense (wires/keypad/firewall) AND enter the correct password:
-    wires=cut_all, keypad=1357908642, firewall=breach.
-    After that, you see the 3/4 options for that defense.
-    """
-    admin_scope = session.get("admin_scope")  # None or "wires"/"keypad"/"firewall"
+    admin_scope = session.get("admin_scope")
     result = None
     stats = None
 
     if request.method == "POST":
         action = request.form.get("action")
-
-        # Step 1: choose & authenticate for a defense
         if action == "choose":
             chosen = (request.form.get("defense") or "").strip()
             pw = (request.form.get("def_pass") or "").strip()
@@ -242,46 +176,70 @@ def login():
             else:
                 session["admin_scope"] = chosen
                 admin_scope = chosen
-
-        # Actions once a defense is chosen
         elif admin_scope:
             if action == "logs":
                 s = DEFENSE_LOGS[admin_scope]
                 stats = {"success": s["success"], "fail": s["fail"]}
-
             elif action == "download":
-                # Defender page: no hacker intel exposure (placeholder)
                 result = {"ok": True, "msg": f"Secure backup executed for {admin_scope.upper()} (no intel exposed)."}
-
             elif action == "logout":
                 session.pop("admin_scope", None)
                 admin_scope = None
-
             elif action == "cancel_detection":
                 if STATE["detection"] >= STATE["max_detection"]:
-                    STATE["files"] = max(0, STATE["files"] - 100)  # penalty to hackers
+                    STATE["files"] = max(0, STATE["files"] - 100)
                     STATE["detection"] = 0
                     result = {"ok": True, "msg": "Detection cancelled. −100GB penalty applied to hackers."}
                 else:
                     result = {"ok": False, "msg": "Detection is not full. Nothing to cancel."}
 
-    return render_template(
-        "login.html",
-        state=STATE,
-        admin_scope=admin_scope,
-        stats=stats,
-        result=result
-    )
+    return render_template("login.html", state=STATE, admin_scope=admin_scope, stats=stats, result=result)
 
 @app.route("/system")
 def system_panel():
-    # Status page: show detection as X/5 and totals
     return render_template("system.html", state=STATE, logs=DEFENSE_LOGS)
 
 @app.route("/logout")
 def logout():
     session.pop("admin_scope", None)
     return redirect(url_for("index"))
+
+# ---------- BLACK MARKET ----------
+@app.route("/black-market", methods=["GET", "POST"])
+def black_market():
+    """
+    Sell stolen intel (GB) for credits.
+    Price is MARKET_PRICE credits per GB.
+    """
+    message = None
+    sold = 0
+    gained = 0
+
+    if request.method == "POST":
+        try:
+            qty = int(request.form.get("gb", "0"))
+        except ValueError:
+            qty = 0
+
+        if qty <= 0:
+            message = {"ok": False, "text": "Enter a valid amount (GB)."}
+        elif qty > STATE["files"]:
+            message = {"ok": False, "text": "Not enough intel (GB) to sell."}
+        else:
+            sold = qty
+            gained = qty * MARKET_PRICE
+            STATE["files"] -= sold
+            STATE["credits"] += gained
+            message = {"ok": True, "text": f"Sold {sold}GB for {gained} credits."}
+
+    return render_template(
+        "black_market.html",
+        state=STATE,
+        price=MARKET_PRICE,
+        message=message,
+        sold=sold,
+        gained=gained
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
