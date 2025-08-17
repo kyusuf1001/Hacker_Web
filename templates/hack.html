@@ -7,12 +7,12 @@
   <p><strong>Challenge:</strong> {{ puzzle.system|capitalize }}</p>
   <p><em>{{ puzzle.desc }}</em></p>
 {% else %}
-  <p><em>Press start to receive a random hack.</em></p>
+  <p><em>Press start to hack.</em></p>
 {% endif %}
 
 <form method="post" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
   {% if not puzzle %}
-    <button type="submit" name="action" value="new">Start Random Hack</button>
+    <button type="submit" name="action" value="new">Start Hack</button>
   {% else %}
     <input type="text" name="answer" placeholder="Your command / code" required />
     <button type="submit" name="action" value="submit">Submit</button>
