@@ -2,6 +2,17 @@
 {% block content %}
 <h2>Hack Console</h2>
 
+<!-- Credits & status -->
+<div class="card" style="margin-bottom:10px; text-align:left;">
+  <p><strong>Credits:</strong> {{ state.credits }}</p>
+  <p><strong>Detection:</strong> {{ state.detection }}/{{ state.max_detection }}
+    {% if state.detection >= state.max_detection %}
+      <span style="color:red; font-weight:bold; margin-left:8px;">⚠ MAXIMUM DETECTION ⚠</span>
+    {% endif %}
+  </p>
+  <p><strong>Files Stolen:</strong> {{ state.files }}GB</p>
+</div>
+
 <!-- Show the current puzzle type and prompt (matches training) -->
 {% if puzzle %}
   <p><strong>Challenge:</strong> {{ puzzle.system|capitalize }}</p>
@@ -16,9 +27,22 @@
   {% else %}
     <input type="text" name="answer" placeholder="Your command / code" required />
     <button type="submit" name="action" value="submit">Submit</button>
-    <button type="submit" name="action" value="cancel">Cancel Hack</button>
+    <button type="submit" name="action" value="cancel" title="Costs 2GB intel">Cancel Hack</button>
+
+    <!-- Credits actions while a hack is active -->
+    <button type="submit" name="action" value="reroll" title="3 credits">Reroll (3)</button>
+    <button type="submit" name="action" value="hint" title="5 credits">Hint (5)</button>
   {% endif %}
+
+  <!-- Credits action that doesn't require an active hack -->
+  <button type="submit" name="action" value="cooldown" title="8 credits">Cool Down (8)</button>
 </form>
+
+{% if hint_text %}
+  <div class="card" style="margin-top:10px; border-color:#999;">
+    <strong>Hint:</strong> {{ hint_text }}
+  </div>
+{% endif %}
 
 {% if result %}
   <div class="{{ 'success' if result.ok else 'fail' }}" style="margin-top:12px;">
@@ -37,16 +61,6 @@
     <div><strong>Total:</strong> {{ total }}GB</div>
   </div>
 {% endif %}
-
-<div class="card" style="margin-top:16px; text-align:left;">
-  <p>
-    <strong>Detection:</strong> {{ state.detection }}/{{ state.max_detection }}
-    {% if state.detection >= state.max_detection %}
-      <span style="color:red; font-weight:bold; margin-left:8px;">⚠ MAXIMUM DETECTION ⚠</span>
-    {% endif %}
-  </p>
-  <p><strong>Files Stolen:</strong> {{ state.files }}GB</p>
-</div>
 
 <a href="{{ url_for('index') }}"><button>Back</button></a>
 {% endblock %}
