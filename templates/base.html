@@ -1,59 +1,53 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Hacker Web</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <title>Hackers Web</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    :root {
-      --bg:#0b0f0c; --panel:#0f1411; --line:#1e2a22; --fg:#c9f5d9; --accent:#38d39f; --warn:#ffd166; --err:#ff6b6b;
-    }
-    * { box-sizing: border-box; }
-    body { margin:0; background:var(--bg); color:var(--fg); font-family: ui-monospace, Menlo, Consolas, monospace; }
-    .container { max-width: 980px; margin: 20px auto; padding: 0 16px; }
-    .nav {
-      display:flex; gap:12px; align-items:center; padding:14px 16px; border-bottom:1px solid var(--line); background:#0d130f;
-    }
-    .brand { font-weight:700; letter-spacing:.4px; margin-right:auto; color: var(--fg); }
-    .nav a { color: var(--fg); text-decoration: none; padding:8px 10px; border:1px solid var(--line); border-radius:8px; }
-    .nav a:hover { background:#112018; }
-    .card {
-      background:var(--panel); border:1px solid var(--line); border-radius:12px;
-      padding:16px; margin:14px 0; box-shadow:0 8px 24px rgba(0,0,0,.25);
-    }
-    .grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-    .btn, button {
-      display:inline-block; cursor:pointer; background:transparent; color:var(--fg);
-      border:1px solid var(--accent); border-radius:10px; padding:10px 14px;
-    }
-    button:hover, .btn:hover { background:#0e2019; }
-    .flash { margin:12px auto; padding:10px 12px; border-left:4px solid var(--accent); background:#0e1a15; }
-    .flash.warn { border-left-color: var(--warn); background:#251f00; }
-    .flash.err  { border-left-color: var(--err);  background:#2a0c0c; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; background:#0b0f14; color:#e7f0ff; }
+    header { background:#0f1720; border-bottom:1px solid #223044; padding:10px 16px; }
+    .topbar { display:flex; align-items:center; gap:12px; }
+    .brand { font-weight:700; letter-spacing:.5px; color:#7dd3fc; }
+    nav.nav { display:flex; gap:10px; flex: 1 1 auto; }
+    nav.nav a { text-decoration:none; color:#e7f0ff; background:#1a2533; border:1px solid #223044; padding:8px 12px; border-radius:10px; }
+    nav.nav a:hover { background:#223044; }
+
+    main { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    .card { border:1px solid #223044; background:#0f1720; border-radius:12px; padding:14px; }
+    .success { color:#32d296; }
+    .fail { color:#ff6b6b; }
+    button { cursor:pointer; background:#1a2533; color:#e7f0ff; border:1px solid #223044; padding:8px 12px; border-radius:10px; }
+    button:hover { background:#223044; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap:12px; margin-top:12px; }
   </style>
 </head>
 <body>
-  <div class="nav">
-    <div class="brand">Hackers Web</div>
-    <a href="{{ url_for('index') }}">Home</a>
-    <a href="{{ url_for('login') }}">Login</a>
-    <a href="{{ url_for('hack') }}">Hack</a>
-    <a href="{{ url_for('training') }}">Training</a>
-    <a href="{{ url_for('system_panel') }}">System</a>
-    <a href="{{ url_for('black_market') }}" class="button" style="float:right; margin-left:auto;">Black Market</a>
+  <header>
+    <div class="topbar">
+      <div class="brand">Hackers Web</div>
+      <nav class="nav">
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('training') }}">Training</a>
+        <a href="{{ url_for('hack') }}">Hack</a>
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('system_panel') }}">System</a>
+        <a href="{{ url_for('black_market') }}">Black Market</a>
+      </nav>
+    </div>
+  </header>
 
-  </div>
-
-  <div class="container">
+  <main>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        {% for cat, m in messages %}
-          <div class="flash {{cat}}">{{ m }}</div>
-        {% endfor %}
+        <div class="card" style="margin-bottom:12px;">
+          {% for category, msg in messages %}
+            <div class="{{ category }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
       {% endif %}
     {% endwith %}
-
     {% block content %}{% endblock %}
-  </div>
+  </main>
 </body>
 </html>
