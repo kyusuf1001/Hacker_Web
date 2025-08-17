@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Defender Login</h2>
+
+{% if not admin_scope %}
+  <!-- Step 1: choose WHICH defense + enter its PASSWORD -->
+  <form method="post" style="margin-bottom:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+    <input type="hidden" name="action" value="choose">
+    <div>
+      <label for="defense">Choose defense:</label><br>
+      <select id="defense" name="defense" required>
+        <option value="" selected disabled>Choose…</option>
+        <option value="wires">Wires</option>
+        <option value="keypad">Keypad</option>
+        <option value="firewall">Firewall</option>
+      </select>
+    </div>
+    <div>
+      <label for="def_pass">Password:</label><br>
+      <input id="def_pass" name="def_pass" type="password" required placeholder="Enter password" />
+    </div>
+    <button type="submit">Enter Console</button>
+  </form>
+{% else %}
+  <!-- Console for the chosen defense -->
+  <div class="card">
+    <p>Managing: <strong>{{ admin_scope|upper }}</strong></p>
+
+    <form method="post" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+      <!-- 1) View defense logs -->
+      <button type="submit" name="action" value="logs">1) View Defense Logs</button>
+
+      <!-- 2) Download files (placeholder; no intel exposure) -->
+      <button type="submit" name="action" value="download">2) Download Files</button>
+
+      <!-- 3) Logout -->
+      <button type="submit" name="action" value="logout">3) Logout</button>
+
+      <!-- 4) Cancel detection (only if full; −100GB penalty applied in backend) -->
+      {% if state.detection >= state.max_detection %}
+        <button type="submit" name="action" value="cancel_detection" style="border-color:#f66;">
+          4) Cancel Detection
+        </button>
+      {% endif %}
+    </form>
+
+    {% if stats %}
+      <div class="card" style="margin-top:10px;">
+        <strong>Defense Logs ({{ admin_scope|upper }})</strong>
+        <div>Successful hacks: {{ stats.success }}</div>
+        <div>Unsuccessful hacks: {{ stats.fail }}</div>
+      </div>
+    {% endif %}
+
+    {% if result %}
+      <div class="card" style="margin-top:10px; border-color:{% if result.ok %}#0f0{% else %}#f66{% endif %};">
+        {{ result.msg }}
+      </div>
+    {% endif %}
+  </div>
+{% endif %}
+
+<div class="card" style="margin-top:16px;">
+  <p><strong>Global Detection:</strong> {{ state.detection }}/{{ state.max_detection }}</p>
+  <p><strong>Total Stolen Data:</strong> {{ state.files }}GB</p>
+</div>
+
+<a href="{{ url_for('index') }}"><button>Back</button></a>
+{% endblock %}

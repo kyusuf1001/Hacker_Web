@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Hack Console</h2>
+
+<!-- Show the current puzzle type and prompt (matches training) -->
+{% if puzzle %}
+  <p><strong>Challenge:</strong> {{ puzzle.system|capitalize }}</p>
+  <p><em>{{ puzzle.desc }}</em></p>
+{% else %}
+  <p><em>Press start to receive a random hack.</em></p>
+{% endif %}
+
+<form method="post" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+  {% if not puzzle %}
+    <button type="submit" name="action" value="new">Start Random Hack</button>
+  {% else %}
+    <input type="text" name="answer" placeholder="Your command / code" required />
+    <button type="submit" name="action" value="submit">Submit</button>
+    <button type="submit" name="action" value="cancel">Cancel Hack</button>
+  {% endif %}
+</form>
+
+{% if result %}
+  <div class="{{ 'success' if result.ok else 'fail' }}" style="margin-top:12px;">
+    {{ result.msg }}
+  </div>
+{% endif %}
+
+{% if result and files and total %}
+  <div class="card" style="margin-top:10px; text-align:left;">
+    <div><strong>Downloaded (on success):</strong></div>
+    <ul>
+      {% for name, sz in files %}
+        <li>{{ name }} ({{ sz }}GB)</li>
+      {% endfor %}
+    </ul>
+    <div><strong>Total:</strong> {{ total }}GB</div>
+  </div>
+{% endif %}
+
+<div class="card" style="margin-top:16px; text-align:left;">
+  <p>
+    <strong>Detection:</strong> {{ state.detection }}/{{ state.max_detection }}
+    {% if state.detection >= state.max_detection %}
+      <span style="color:red; font-weight:bold; margin-left:8px;">⚠ MAXIMUM DETECTION ⚠</span>
+    {% endif %}
+  </p>
+  <p><strong>Files Stolen:</strong> {{ state.files }}GB</p>
+</div>
+
+<a href="{{ url_for('index') }}"><button>Back</button></a>
+{% endblock %}

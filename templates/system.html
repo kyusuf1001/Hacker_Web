@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>System Status</h2>
+<div class="card" style="text-align:left;">
+  <p><strong>Detection:</strong> {{ state.detection }}/{{ state.max_detection }}</p>
+  <p><strong>Total Files Stolen:</strong> {{ state.files }}GB</p>
+  <hr>
+  <p><strong>Defense Logs:</strong></p>
+  <ul>
+    <li>Wires — Success: {{ logs.wires.success }}, Fail: {{ logs.wires.fail }}</li>
+    <li>Keypad — Success: {{ logs.keypad.success }}, Fail: {{ logs.keypad.fail }}</li>
+    <li>Firewall — Success: {{ logs.firewall.success }}, Fail: {{ logs.firewall.fail }}</li>
+  </ul>
+</div>
+<a href="{{ url_for('index') }}"><button>Back</button></a>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="text-align:center; border-color:#38d39f;">
+  <h1>🟢 Hacker Web</h1>
+  <p>Your mission vs. defenses. Train, Hack, or Defend the system.</p>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>📚 Training</h2>
+    <p>Rulebook with commands for Wires, Keypad, and Firewall.</p>
+    <a class="btn" href="{{ url_for('training') }}">Enter Training</a>
+  </div>
+
+  <div class="card">
+    <h2>🔐 Defender Login</h2>
+    <p>Owner console: view stats, download data, or logout. Cancel detection if needed.</p>
+    <a class="btn" href="{{ url_for('login') }}">Open Login</a>
+  </div>
+
+  <div class="card">
+    <h2>💻 Hack Console</h2>
+    <p>Attempt random hacks. Success downloads data; failure raises detection.</p>
+    <a class="btn" href="{{ url_for('hack') }}">Go Hack</a>
+  </div>
+
+  <div class="card">
+    <h2>📂 System Status</h2>
+    <p>View successful/failed hacks, GB downloaded, and detection level.</p>
+    <a class="btn" href="{{ url_for('system_panel') }}">View Status</a>
+  </div>
+</div>
+{% endblock %}

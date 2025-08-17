@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Training — Rules & Commands</h2>
+
+  <h3>Wires</h3>
+  <ol>
+    <li>if <em>2 lights</em> and wires are <strong>red &amp; blue</strong> → command: <code>connect red blue</code></li>
+    <li>if <em>2 lights</em> and wires are <strong>green &amp; yellow</strong> → command: <code>cut green</code></li>
+    <li>if <em>3 lights</em> (any pair shown) → command: <code>disconnect all</code></li>
+    <li>if <em>1 light</em> with <strong>red</strong> and another color → command: <code>cut &lt;color&gt;</code> (not red)</li>
+  </ol>
+
+  <h3>Keypad</h3>
+  <ol>
+    <li>if number is <strong>even</strong> → pass = <code>number * 2</code></li>
+    <li>if number is <strong>odd</strong> → pass = <code>number + 3</code></li>
+    <li>if number is <strong>9</strong> → pass = <code>999</code></li>
+  </ol>
+
+  <h3>Firewall</h3>
+  <p>Pattern starts with A / B / C / D:</p>
+  <ul>
+    <li><strong>A</strong> → type the pattern <strong>backwards</strong></li>
+    <li><strong>B</strong> → type the pattern <strong>twice</strong> (repeat)</li>
+    <li><strong>C</strong> → <strong>drop the middle</strong> character</li>
+    <li><strong>D</strong> → type the pattern <strong>as-is</strong></li>
+  </ul>
+
+  <p style="margin-top:10px;color:#9fe6bf;">Use these commands exactly in the hack console.</p>
+</div>
+{% endblock %}
