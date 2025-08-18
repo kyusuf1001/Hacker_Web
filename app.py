@@ -10,8 +10,14 @@ STATE = {
     "max_detection": 5,
     "files": 0,          # total GB stolen by hackers (from successful hacks)
     "credits": 0,        # earned by selling intel on the Black Market
-    # (Power Surge removed)
+
+    # Defense boost (new): one use per detection cycle (starts with 1)
+    "defense_boost_available": 1,   # 1 = can trigger "Increase Defense" once this cycle
+    "defense_boost_hacks_left": 0,  # after activation, counts down attempts (success or fail)
 }
+
+# How strongly the defense reduces intel on success while active (50%)
+DEFENSE_REDUCTION_MULTIPLIER = 0.5
 
 # Per-defense hack attempt logs
 DEFENSE_LOGS = {
@@ -41,12 +47,11 @@ FILE_CATALOG = {
     ],
 }
 
-# Black market price (credits per GB) — changed to 1:1
-MARKET_PRICE = 1
+# Black market price (credits per GB)
+MARKET_PRICE = 1  # (your current setting)
 
 # ======= HELPERS (PUZZLES MATCH TRAINING RULES) =======
 def gen_wires():
-    """Generate a wires scenario + expected command per your training rules."""
     case = random.choice(["two_rb", "two_gy", "three_any", "one_red_other"])
     if case == "two_rb":
         return {"system": "wires", "desc": "Indicators: 2 lights | wires: red, blue", "expected": "connect red blue"}
@@ -59,7 +64,6 @@ def gen_wires():
     return {"system": "wires", "desc": f"Indicators: 1 light | wires: red, {other}", "expected": f"cut {other}"}
 
 def gen_keypad():
-    """Even → *2; Odd → +3; 9 → 999."""
     n = random.randint(1, 9)
     if n == 9: expected = "999"
     elif n % 2 == 0: expected = str(n * 2)
@@ -67,7 +71,6 @@ def gen_keypad():
     return {"system": "keypad", "desc": f"Indicator number: {n}", "expected": expected}
 
 def gen_firewall():
-    """Pattern ABC starting with A/B/C/D → transform per training."""
     start = random.choice("ABCD")
     rest = "".join(random.choice("ABCDEF") for _ in range(2))
     pat = (start + rest).upper()
@@ -84,15 +87,14 @@ def start_random_puzzle():
     session["p_system"] = p["system"]
     session["p_desc"] = p["desc"]
     session["p_expected"] = p["expected"]
-    session["p_explicit"] = True   # ← NEW: started by clicking the button
+    session["p_explicit"] = True   # mark that user pressed Start Hack
 
 def clear_puzzle():
     session.pop("p_active", None)
     session.pop("p_system", None)
     session.pop("p_desc", None)
     session.pop("p_expected", None)
-    session.pop("p_explicit", None)  # ← NEW
-
+    session.pop("p_explicit", None)
 
 def hacker_success(system):
     # Add some GB and show a small random file list
@@ -101,10 +103,16 @@ def hacker_success(system):
     size = sum(sz for _, sz in selection)
     if size == 0:
         size = random.randint(10, 40)  # fallback GB amount
+
+    # Apply defense boost if active (reduce intel gain)
+    if STATE["defense_boost_hacks_left"] > 0:
+        reduced = max(1, int(round(size * DEFENSE_REDUCTION_MULTIPLIER)))
+        size = reduced
+
     STATE["files"] += size
     return selection, size
 
-# ======= ROUTES (unchanged pages not included) =======
+# ======= ROUTES =======
 @app.route("/")
 def index():
     return render_template("index.html", state=STATE)
@@ -123,16 +131,16 @@ def hack():
     """
     No auto-start. You must press 'Start Hack' to get a puzzle.
     Cancel Hack costs 2GB. Credits actions: Reroll (3), Hint (5), Cool Down (8).
+    While defense boost is active, successful hacks yield reduced intel.
     """
     result = None
-    # If a previous session cookie says there's an active puzzle,
-    # but it wasn't explicitly started in this visit, clear it.
-    if request.method == "GET" and session.get("p_active") and not session.get("p_explicit"):
-        clear_puzzle()
-
     files = []
     total = 0
     hint_text = None
+
+    # Clear any old/stale “active hack” from previous deployments
+    if request.method == "GET" and session.get("p_active") and not session.get("p_explicit"):
+        clear_puzzle()
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -169,6 +177,11 @@ def hack():
                     else:
                         STATE["detection"] = min(STATE["max_detection"], STATE["detection"] + 1)
                         result = {"ok": False, "msg": f"Hack failed on {sysname.upper()} — detection raised."}
+
+                # Count this attempt toward the 8 attempts window (success or fail)
+                if STATE["defense_boost_hacks_left"] > 0:
+                    STATE["defense_boost_hacks_left"] -= 1
+
                 clear_puzzle()
 
         elif action == "cancel":
@@ -182,7 +195,7 @@ def hack():
                     STATE["files"] -= 2
                     result = {"ok": True, "msg": "Hack cancelled."}
 
-        # Credits actions
+        # ===== Credits actions =====
         elif action == "reroll":
             if not session.get("p_active"):
                 flash("Start a hack first.", "warn")
@@ -220,7 +233,6 @@ def hack():
                 STATE["detection"] = max(0, STATE["detection"] - 1)
                 result = {"ok": True, "msg": "System cooled. Detection decreased by 1."}
 
-    # Only show puzzle if there IS one
     puzzle = None
     if session.get("p_active"):
         puzzle = {"system": session.get("p_system"), "desc": session.get("p_desc")}
@@ -238,6 +250,12 @@ def hack():
 # ---------- LOGIN (DEFENDER MENU WITH PASSWORD PER DEFENSE) ----------
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    """
+    'Increase Defense' replaces old 'Download' action:
+      - One use per detection cycle (starts with 1).
+      - When used: next 8 hack attempts reduce intel on any success by 50%.
+      - Button is disabled (grayed) when not available.
+    """
     admin_scope = session.get("admin_scope")  # None or "wires"/"keypad"/"firewall"
     result = None
     stats = None
@@ -264,7 +282,13 @@ def login():
                 stats = {"success": s["success"], "fail": s["fail"]}
 
             elif action == "download":
-                result = {"ok": True, "msg": f"Secure backup executed for {admin_scope.upper()} (no intel exposed)."}
+                # NEW behavior: Increase Defense (one use per detection cycle)
+                if STATE["defense_boost_available"] <= 0:
+                    result = {"ok": False, "msg": "Increase Defense already used this detection."}
+                else:
+                    STATE["defense_boost_available"] = 0
+                    STATE["defense_boost_hacks_left"] = 8
+                    result = {"ok": True, "msg": "Defense increased: next 8 hacks yield reduced intel."}
 
             elif action == "logout":
                 session.pop("admin_scope", None)
@@ -274,6 +298,8 @@ def login():
                 if STATE["detection"] >= STATE["max_detection"]:
                     STATE["files"] = max(0, STATE["files"] - 100)  # penalty to hackers
                     STATE["detection"] = 0
+                    # Recharge the one use for the new detection cycle
+                    STATE["defense_boost_available"] = 1
                     result = {"ok": True, "msg": "Detection cancelled. −100GB penalty applied to hackers."}
                 else:
                     result = {"ok": False, "msg": "Detection is not full. Nothing to cancel."}
@@ -283,7 +309,8 @@ def login():
         state=STATE,
         admin_scope=admin_scope,
         stats=stats,
-        result=result
+        result=result,
+        can_increase_defense=(STATE["defense_boost_available"] > 0)
     )
 
 @app.route("/system")
