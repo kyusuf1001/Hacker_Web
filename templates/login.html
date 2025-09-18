@@ -28,9 +28,10 @@
 
       {# "Increase Defense" replaces old Download action. Disabled when unavailable. #}
       <button type="submit" name="action" value="download"
-              {% if not can_increase_defense %}disabled{% endif %}>
+        {% if not can_increase_defense %}disabled{% endif %}>
         Increase Defense
       </button>
+
 
       <button type="submit" name="action" value="logout">Logout</button>
       <button type="submit" name="action" value="cancel_detection">Cancel Detection</button>

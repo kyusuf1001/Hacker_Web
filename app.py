@@ -11,7 +11,7 @@ STATE = {
     "max_detection": 5,
     "files": 0,
     "credits": 0,
-    "defense_boost_available": 1,
+    "defense_boost_available": 0,
     "defense_boost_hacks_left": 0,
 }
 
@@ -47,7 +47,11 @@ def gen_wires():
     elif case == "two_gy":
         return {"system": "wires", "desc": "Indicators: 2 lights | wires: green, yellow", "expected": "cut green"}
     elif case == "three_any":
-        return {"system": "wires", "desc": "Indicators: 3 lights | any pair shown", "expected": "disconnect all"}
+        colors = ["red", "green", "blue", "yellow"]
+        shown = random.sample(colors, 2)
+        desc = f"Indicators: 3 lights | wires: {shown[0]}, {shown[1]}"
+        return {"system": "wires", "desc": desc, "expected": "disconnect all"}
+
     else:
         other = random.choice(["blue", "green", "yellow"])
         return {"system": "wires", "desc": f"Indicators: 1 light | wires: red, {other}", "expected": f"cut {other}"}
@@ -143,14 +147,26 @@ def hack():
                         STATE["defense_boost_hacks_left"] -= 1
                     clear_puzzle()
 
+
         elif action == "cancel":
+
             if not session.get("p_active"):
+
                 flash("No active hack to cancel.", "warn")
+
             else:
-                STATE["detection"] = min(STATE["max_detection"], STATE["detection"] + 1)
-                result = {"ok": True, "msg": "Hack cancelled. ", "bad": "Detection +1."}
+                if STATE["detection"] >= STATE["max_detection"]:
+                    penalty = min(12, STATE["files"])
+                    STATE["files"] -= penalty
+                    result = {"ok": True, "msg": "Hack cancelled. ", "bad": f"Been traced — -{penalty}GB penalty."}
+
+                else:
+                    STATE["detection"] = min(STATE["max_detection"], STATE["detection"] + 1)
+                    result = {"ok": True, "msg": "Hack cancelled. ", "bad": "Detection +1."}
+
                 if STATE["defense_boost_hacks_left"] > 0:
                     STATE["defense_boost_hacks_left"] -= 1
+
                 clear_puzzle()
 
         elif action == "reroll":
