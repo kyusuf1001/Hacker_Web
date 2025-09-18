@@ -1,7 +1,7 @@
-# app.py
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import random
 import secrets
+import time
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key"
@@ -12,12 +12,14 @@ STATE = {
     "max_detection": 5,
     "files": 0,
     "credits": 0,
+    # Start with NO defense use available (you requested this)
     "defense_boost_available": 0,
     "defense_boost_hacks_left": 0,
 }
 
 DEFENSE_REDUCTION_MULTIPLIER = 0.5
 
+# Per-defense hack attempt logs
 DEFENSE_LOGS = {
     "wires":   {"success": 0, "fail": 0},
     "keypad":  {"success": 0, "fail": 0},
@@ -33,15 +35,27 @@ FILE_POOL = [
     ("ops_notes.md", 2),
 ]
 
-# Black market ratio: 3 GB -> 1 credit
+# Black market: 3 GB -> 1 credit
 GB_PER_CREDIT = 3
 
+# Defender passwords
 PASS_WIRES = "-"
 PASS_KEYPAD = "124578"
 PASS_FIREWALL = "upgrade"
 
-# Server-side puzzle store (token -> {"expected":..., "system":..., "desc":...})
+# Server-side puzzle store (token -> {"expected":..., "system":...})
 PUZZLES = {}
+
+# Cooldown after finish/cancel (seconds)
+COOLDOWN_SECONDS = 10
+
+def start_cooldown():
+    session["hack_cooldown_until"] = time.time() + COOLDOWN_SECONDS
+
+def cooldown_remaining():
+    until = session.get("hack_cooldown_until", 0)
+    return max(0, int(round(until - time.time())))
+
 
 # ======= HELPERS (PUZZLES MATCH TRAINING RULES) =======
 def gen_wires():
@@ -86,14 +100,12 @@ def gen_firewall():
     return {"system": "firewall", "desc": f"Firewall pattern: {pat}", "expected": expected}
 
 def start_puzzle():
-    """Start a random puzzle; store expected server-side and store token in session only."""
+    """Start a random puzzle; store expected server-side and token in session only."""
     p = random.choice([gen_wires(), gen_keypad(), gen_firewall()])
-
-    # display info in session (safe)
+    # display fields (safe) in session
     session["p_system"] = p["system"]
     session["p_desc"] = p["desc"]
-
-    # generate token and store expected server-side
+    # server-side expected via token
     token = secrets.token_urlsafe(16)
     session["p_token"] = token
     PUZZLES[token] = {"expected": p["expected"], "system": p["system"]}
@@ -112,12 +124,14 @@ def hacker_success(system):
     if size == 0:
         size = random.randint(10, 40)
 
+    # Apply defense boost if active (reduce intel gain)
     if STATE["defense_boost_hacks_left"] > 0:
         reduced = max(1, int(round(size * DEFENSE_REDUCTION_MULTIPLIER)))
         size = reduced
 
     STATE["files"] += size
     return selection, size
+
 
 # ======= ROUTES =======
 @app.route("/")
@@ -133,12 +147,13 @@ def training():
         return redirect(url_for("hack"))
     return render_template("training.html")
 
-
 @app.route("/hack", methods=["GET", "POST"])
 def hack():
     """
-    No auto-start. Puzzle is active only if session['p_token'] exists and is present in PUZZLES.
-    This prevents the expected answer from being stored in the client cookie.
+    No auto-start. Puzzle is active only if session['p_token'] exists AND token in PUZZLES.
+    Submit requires answer server-side only.
+    Cancel: +1 detection, but if at max detection, traced penalty (-12GB).
+    After submit or cancel, a 10s cooldown starts.
     """
     result = None
     files = []
@@ -153,12 +168,16 @@ def hack():
         action = request.form.get("action")
 
         if action == "new":
-            # Only start when user clicks Start Hack
-            # If there is already an active token, don't start another
+            # If already active, warn
             if session.get("p_token") and session["p_token"] in PUZZLES:
                 flash("A hack is already in progress.", "warn")
             else:
-                start_puzzle()
+                # Enforce 10s cooldown
+                rem = cooldown_remaining()
+                if rem > 0:
+                    result = {"neutral": True, "msg": f"Cooldown active — try again in {rem}s."}
+                else:
+                    start_puzzle()
 
         elif action == "submit":
             token = session.get("p_token")
@@ -192,10 +211,12 @@ def hack():
                         else:
                             result = {"ok": False, "msg": f"Hack failed on {sysname.upper()} — detection raised."}
 
+                    # count down defense boost attempts if active
                     if STATE["defense_boost_hacks_left"] > 0:
                         STATE["defense_boost_hacks_left"] -= 1
 
-                    # cleanup server-side expected after attempt
+                    # start cooldown and cleanup
+                    start_cooldown()
                     clear_puzzle()
 
         elif action == "cancel":
@@ -207,7 +228,7 @@ def hack():
                 if STATE["detection"] >= STATE["max_detection"]:
                     penalty = min(12, STATE["files"])
                     STATE["files"] -= penalty
-                    # you preferred ok=True for this case earlier; keep that
+                    # you chose ok=True for this case
                     result = {"ok": True, "msg": "Hack cancelled. ", "bad": f"Been traced — -{penalty}GB penalty."}
                 else:
                     STATE["detection"] = min(STATE["max_detection"], STATE["detection"] + 1)
@@ -216,6 +237,8 @@ def hack():
                 if STATE["defense_boost_hacks_left"] > 0:
                     STATE["defense_boost_hacks_left"] -= 1
 
+                # start cooldown and cleanup
+                start_cooldown()
                 clear_puzzle()
 
         elif action == "reroll":
@@ -244,7 +267,6 @@ def hack():
     puzzle = None
     token = session.get("p_token")
     if token and token in PUZZLES:
-        # show only the safe display fields from session
         puzzle = {"system": session.get("p_system"), "desc": session.get("p_desc")}
 
     return render_template(
@@ -303,6 +325,7 @@ def login():
             if STATE["detection"] >= STATE["max_detection"]:
                 STATE["files"] = max(0, STATE["files"] - 100)
                 STATE["detection"] = 0
+                # recharge the one use for the NEW detection cycle
                 STATE["defense_boost_available"] = 1
                 result = {"ok": True, "msg": "Detection cancelled. −100GB penalty applied to hackers."}
             else:
@@ -331,7 +354,7 @@ def logout():
 def black_market():
     """
     Sell stolen intel for credits.
-    New ratio: 3 GB -> 1 credit (full groups only).
+    Ratio: 3 GB -> 1 credit (full groups only).
     """
     message = None
     sold = 0
@@ -362,7 +385,7 @@ def black_market():
         "black_market.html",
         state=STATE,
         gb_per_credit=GB_PER_CREDIT,
-        price=GB_PER_CREDIT,
+        price=GB_PER_CREDIT,   # back-compat if old template referenced 'price'
         message=message,
         sold=sold,
         gained=gained
