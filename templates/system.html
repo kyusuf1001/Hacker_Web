@@ -7,9 +7,9 @@
   <hr>
   <p><strong>Defense Logs:</strong></p>
   <ul>
-    <li>Wires — Success: {{ logs.wires.success }}, Fail: {{ logs.wires.fail }}</li>
-    <li>Keypad — Success: {{ logs.keypad.success }}, Fail: {{ logs.keypad.fail }}</li>
-    <li>Firewall — Success: {{ logs.firewall.success }}, Fail: {{ logs.firewall.fail }}</li>
+    <li>Wires — Success: {{ (logs.wires.success)|default(0) }}, Fail: {{ (logs.wires.fail)|default(0) }}</li>
+    <li>Keypad — Success: {{ (logs.keypad.success)|default(0) }}, Fail: {{ (logs.keypad.fail)|default(0) }}</li>
+    <li>Firewall — Success: {{ (logs.firewall.success)|default(0) }}, Fail: {{ (logs.firewall.fail)|default(0) }}</li>
   </ul>
 </div>
 <a href="{{ url_for('index') }}"><button>Back</button></a>

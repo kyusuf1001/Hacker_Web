@@ -25,28 +25,28 @@
   {% if not puzzle %}
     <button type="submit" name="action" value="new">Start Hack</button>
   {% else %}
-    <input type="text" name="answer" placeholder="Your command / code" required />
+    <input type="text" name="answer" placeholder="Your command / code" />
     <button type="submit" name="action" value="submit">Submit</button>
-    <button type="submit" name="action" value="cancel" title="Costs 2GB intel">Cancel Hack</button>
+    <button type="submit" name="action" value="cancel" title="Adds 1 detection">Cancel Hack</button>
 
     <!-- Credits actions while a hack is active -->
-    <button type="submit" name="action" value="reroll" title="3 credits">Reroll (3)</button>
-    <button type="submit" name="action" value="hint" title="5 credits">Hint (5)</button>
+    <button type="submit" name="action" value="reroll" title="1 credit">Reroll (1)</button>
   {% endif %}
 
   <!-- Credits action that doesn't require an active hack -->
-  <button type="submit" name="action" value="cooldown" title="8 credits">Cool Down (8)</button>
+  <button type="submit" name="action" value="cooldown" title="5 credits">Cool Down (5)</button>
 </form>
 
-{% if hint_text %}
-  <div class="card" style="margin-top:10px; border-color:#999;">
-    <strong>Hint:</strong> {{ hint_text }}
-  </div>
-{% endif %}
-
 {% if result %}
-  <div class="{{ 'success' if result.ok else 'fail' }}" style="margin-top:12px;">
-    {{ result.msg }}
+  <div style="margin-top:12px;">
+    {% if result.neutral %}
+      <span>{{ result.msg|safe }}</span>
+    {% else %}
+      <span class="{{ 'success' if result.ok else 'fail' }}">{{ result.msg|safe }}</span>
+    {% endif %}
+    {% if result.bad %}
+      <span class="fail">{{ result.bad }}</span>
+    {% endif %}
   </div>
 {% endif %}
 
